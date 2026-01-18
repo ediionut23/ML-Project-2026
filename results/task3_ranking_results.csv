@@ -1,0 +1,13 @@
+algorithm,k,hit_rate,ndcg
+naive_bayes,1,0.164,0.164
+naive_bayes,3,0.742,0.32153496052689945
+naive_bayes,5,0.854,0.42636564502205027
+decision_tree,1,0.188,0.188
+decision_tree,3,0.742,0.3300530679149349
+decision_tree,5,0.862,0.4286497832299795
+logistic_regression,1,0.172,0.172
+logistic_regression,3,0.734,0.3191675670105943
+logistic_regression,5,0.848,0.4225497525496709
+popularity,1,0.158,0.158
+popularity,3,0.584,0.2885847075911498
+popularity,5,0.872,0.4267099417235653

@@ -1,0 +1,64 @@
+feature,coefficient
+has_Extra jalapeno,0.1774278164230237
+total_value,0.15081375273183456
+has_Mac & cheease,0.14433747837027938
+is_weekend,0.141042945383754
+has_Mirinda Orange Can 0.33L,0.12127473365389214
+has_Healthy Salad with Chicken and Seeds,0.11519386938799915
+has_French fries,0.10782091361985702
+has_Crispy Chicken Schnitzel,0.10297292190321651
+has_Jalapeno Pizza Schnitzel,0.09547212578722819
+has_Baked potatoes,0.08907233235312868
+has_Spicy Sauce,0.08571772103054533
+has_Healthy Green Fit Schnitzel,0.08148664868845625
+has_Crazy Fries with Parmesan,0.07195264732110672
+has_Cheddar Sauce,0.06555750072690737
+has_Pepsi Zero Can 0.33L,0.059358994968462725
+has_Extra parmezan,0.05704194582830377
+has_Lipton Lemon Tea 0.33L,0.052083926636076396
+has_Garlic Sauce,0.050339061986824175
+has_Prigat Still Peach Apricot 0.25L,0.05027582991947699
+cart_size,0.04166527749378373
+has_Chicken Bao Buns,0.040366433637363315
+has_Potatoes with Cheddar and Bacon Sauce,0.02527506252173749
+has_Crazy Fries with Cheddar Sauce,0.012568280530546082
+has_Snails with walnuts and meringue,0.008952282967759916
+has_Crazy Fries with Cheddar Sauce and bacon,0.00766215480030965
+has_Tomato Sauce,0.007247284478458568
+has_Extra Cheddar Sauce,0.0024905459124737505
+has_Crazy peaches,0.002455681928976349
+has_Arugula Salad with Cherry Tomatoes and Parmesan,0.0005614525490092085
+has_Crazy Schnitzel,0.0
+has_Fit Schnitzel with seeds,-0.013388946450922678
+has_Green Fit Schnitzel,-0.021499178365579026
+has_Red Fit Schnitzel,-0.023913231754142682
+has_Pepsi Cola Can 0.33L,-0.026160188040762755
+has_French Fries with Parmesan,-0.030054123169118024
+has_Mac & Cheese with Jalapeno and Tomato Sauce,-0.0312622389000097
+has_Healthy Red Fit Schnitzel,-0.03175585791335661
+has_Margherita Pizza Schnitzel,-0.03227381187623441
+has_Mac & Cheese with Crispy Bacon,-0.033967100501174866
+has_Breaded Chicken Schnitzel,-0.034051897440238496
+has_Packaging,-0.03879266262338374
+has_Breaded Pork Schnitzel,-0.04088724026701855
+distinct_products,-0.047851918352100974
+has_Pink Sauce,-0.05046405229106442
+has_Chicken Schnitzel with Feta and Tomato Sauce,-0.06071185875327386
+has_Potatoes with Cheddar Sauce,-0.06071185875327387
+has_Blueberry Sauce,-0.06182792578496361
+has_Extra Lamaie,-0.06367956811123592
+has_Extra bacon,-0.06986716269804678
+has_7Up Lemon Lime 0.33L,-0.07829070811099868
+has_Crazy Pepperoni Schnitzel,-0.0819728405226297
+has_Pepsi Twist Can 0.33L,-0.08564943407117265
+has_Mountain Dew 0.25L Doze,-0.08788362367832422
+hour,-0.08957191285086952
+has_Aqua Carpatica Minerala 0.5L,-0.09119458597623033
+has_Viennese Schnitzel,-0.09779239333233979
+has_Potatoes with Feta,-0.10950935232966276
+day_of_week,-0.12739557124143414
+has_Pepsi Twist Zero Can 0.33L,-0.14741260233378986
+has_Aqua Carpatica Plata 0.5L,-0.14754464931541356
+has_Pepsi Cola 0.25L Doze,-0.15202742280498352
+has_Prigat Still Orange 0.25L,-0.17063252848255273
+has_Tagliata Schnitzel,-0.21714036576015205

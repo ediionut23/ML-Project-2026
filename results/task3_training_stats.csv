@@ -1,0 +1,34 @@
+algorithm,product,auc,n_positive
+naive_bayes,Crazy Sauce,0.48685189337718404,1326
+naive_bayes,Cheddar Sauce,0.5223606793960923,832
+naive_bayes,Garlic Sauce,0.4638418879533679,596
+naive_bayes,Tomato Sauce,0.5835222222222222,171
+naive_bayes,Blueberry Sauce,0.47887375432285617,580
+naive_bayes,Spicy Sauce,0.5857371794871795,313
+naive_bayes,Pink Sauce,0.48644390188507836,116
+naive_bayes,Pepsi Cola 0.25L Doze,0.46864645339119726,1368
+naive_bayes,Aqua Carpatica Plata 0.5L,0.4701348535135791,1236
+naive_bayes,Mountain Dew 0.25L Doze,0.5542003407020046,365
+naive_bayes,Baked potatoes,0.49067903773786126,1730
+decision_tree,Crazy Sauce,0.5209216488167061,1326
+decision_tree,Cheddar Sauce,0.5170071047957371,832
+decision_tree,Garlic Sauce,0.5196358214594127,596
+decision_tree,Tomato Sauce,0.5627666666666666,171
+decision_tree,Blueberry Sauce,0.48368830105357047,580
+decision_tree,Spicy Sauce,0.5311332569196807,313
+decision_tree,Pink Sauce,0.4429650238473768,116
+decision_tree,Pepsi Cola 0.25L Doze,0.46265907691405445,1368
+decision_tree,Aqua Carpatica Plata 0.5L,0.5035560309181727,1236
+decision_tree,Mountain Dew 0.25L Doze,0.5513132873781792,365
+decision_tree,Baked potatoes,0.5000121882474824,1730
+logistic_regression,Crazy Sauce,0.485814353290408,1326
+logistic_regression,Cheddar Sauce,0.5019066385435169,832
+logistic_regression,Garlic Sauce,0.4516441332037996,596
+logistic_regression,Tomato Sauce,0.5923111111111112,171
+logistic_regression,Blueberry Sauce,0.48571355457583004,580
+logistic_regression,Spicy Sauce,0.6040923756155544,313
+logistic_regression,Pink Sauce,0.5157846922552805,116
+logistic_regression,Pepsi Cola 0.25L Doze,0.48339772160806965,1368
+logistic_regression,Aqua Carpatica Plata 0.5L,0.48899376270339207,1236
+logistic_regression,Mountain Dew 0.25L Doze,0.5727012518817843,365
+logistic_regression,Baked potatoes,0.49629629629629624,1730

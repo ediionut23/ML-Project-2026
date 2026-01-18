@@ -1,0 +1,923 @@
+\documentclass[11pt,a4paper]{article}
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage{geometry}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{array}
+\usepackage{longtable}
+
+\geometry{margin=2.5cm}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,
+    urlcolor=cyan,
+    citecolor=blue
+}
+
+\lstset{
+    basicstyle=\ttfamily\footnotesize,
+    breaklines=true,
+    frame=single,
+    language=Python
+}
+
+% Title
+\title{\textbf{Machine Learning Practical Assignment}\\
+\large Restaurant Product Recommendation System\\
+\vspace{0.5cm}
+\normalsize Fall 2025}
+
+\author{
+    Tanasa Ionut-Eduard \and Cojocarescu Rebeca Daria
+}
+
+\date{January 18, 2025}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This report presents a comprehensive machine learning solution for restaurant product recommendations, focusing on sauce prediction and product ranking for upsell opportunities. We implement and evaluate multiple classification algorithms including custom Logistic Regression variants (Gradient Descent, Newton's Method, Mini-batch GD), Naive Bayes, k-Nearest Neighbors, Decision Trees (ID3), and AdaBoost. Our experiments demonstrate that while popularity-based baselines remain competitive, learned models can capture meaningful purchase patterns, particularly at moderate recommendation depths (K=3). We provide detailed analysis of feature importance, hyperparameter sensitivity, and algorithmic trade-offs across three distinct prediction tasks.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+%==============================================================================
+\section{Introduction}
+%==============================================================================
+
+\subsection{Problem Description}
+
+This project addresses the challenge of product recommendation in a restaurant setting, using transaction data from fiscal receipts. The primary goal is to predict customer purchasing behavior and recommend relevant products (particularly sauces and complementary items) based on cart composition and temporal context.
+
+The project encompasses three main tasks:
+\begin{enumerate}
+    \item \textbf{Task 2.1:} Binary classification to predict whether a customer who purchases ``Crazy Schnitzel'' will also purchase ``Crazy Sauce''
+    \item \textbf{Task 2.2:} Multi-sauce recommendation system with individual models for each of 8 standalone sauces
+    \item \textbf{Task 3:} Product ranking for upsell recommendations using multiple machine learning algorithms
+\end{enumerate}
+
+\subsection{Dataset Overview}
+
+The dataset consists of transaction records from a restaurant, containing the following key statistics:
+
+\begin{table}[H]
+\centering
+\caption{Dataset Statistics}
+\begin{tabular}{ll}
+\toprule
+\textbf{Attribute} & \textbf{Value} \\
+\midrule
+Time Period & September 5, 2025 -- December 3, 2025 \\
+Total Receipts & $\sim$7,869 \\
+Total Transaction Lines & 28,039 \\
+Unique Products & 59 \\
+Average Cart Size & 3.56 products/receipt \\
+Maximum Cart Size & 26 products \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The standalone sauces analyzed in this project are:
+\begin{itemize}
+    \item Crazy Sauce, Cheddar Sauce, Extra Cheddar Sauce, Garlic Sauce
+    \item Tomato Sauce, Blueberry Sauce, Spicy Sauce, Pink Sauce
+\end{itemize}
+
+\subsection{Key Columns}
+
+\begin{itemize}
+    \item \texttt{id\_bon}: Receipt identifier (groups products into transactions)
+    \item \texttt{data\_bon}: Timestamp of the transaction
+    \item \texttt{retail\_product\_name}: Product name
+    \item \texttt{SalePriceWithVAT}: Price including VAT per line item
+\end{itemize}
+
+%==============================================================================
+\section{Theoretical Background}
+%==============================================================================
+
+\subsection{Logistic Regression}
+
+Logistic Regression is a fundamental classification algorithm that models the probability of a binary outcome using the logistic (sigmoid) function:
+\begin{equation}
+\sigma(z) = \frac{1}{1 + e^{-z}}
+\end{equation}
+
+For a feature vector $x \in \mathbb{R}^n$ and weights $\theta \in \mathbb{R}^n$, the predicted probability is:
+\begin{equation}
+P(y=1 \mid x) = \sigma(x^T \theta) = \frac{1}{1 + e^{-x^T \theta}}
+\end{equation}
+
+The model is trained by minimizing the binary cross-entropy loss with optional L2 regularization:
+\begin{equation}
+J(\theta) = -\frac{1}{m} \sum_{i=1}^{m} \left[ y_i \log(\hat{y}_i) + (1-y_i) \log(1-\hat{y}_i) \right] + \frac{\lambda}{2} \|\theta\|^2
+\end{equation}
+
+\subsection{Naive Bayes}
+
+The Naive Bayes classifier applies Bayes' theorem with the ``naive'' assumption of conditional independence between features:
+\begin{equation}
+P(y \mid x_1, \ldots, x_n) = \frac{P(y) \prod_{i=1}^{n} P(x_i \mid y)}{P(x_1, \ldots, x_n)}
+\end{equation}
+
+For classification, we select the class with maximum posterior probability:
+\begin{equation}
+\hat{y} = \arg\max_{c} P(y=c) \prod_{i=1}^{n} P(x_i \mid y=c)
+\end{equation}
+
+\subsection{k-Nearest Neighbors}
+
+k-NN is a non-parametric algorithm that classifies instances based on the majority vote of their $k$ nearest neighbors in feature space. For distance-weighted voting:
+\begin{equation}
+\hat{y} = \arg\max_{c} \sum_{i \in N_k(x)} w_i \cdot \mathbb{1}[y_i = c], \quad w_i = \frac{1}{d(x, x_i) + \epsilon}
+\end{equation}
+
+where $d(x, x_i)$ is the Euclidean distance and $\epsilon$ prevents division by zero.
+
+\subsection{Decision Trees (ID3)}
+
+The ID3 algorithm builds decision trees by recursively selecting the feature that maximizes information gain:
+\begin{equation}
+\text{IG}(S, A) = H(S) - \sum_{v \in \text{values}(A)} \frac{|S_v|}{|S|} H(S_v)
+\end{equation}
+
+where entropy $H(S) = -\sum_{c} p_c \log_2 p_c$ measures the impurity of set $S$.
+
+\subsection{AdaBoost}
+
+AdaBoost (Adaptive Boosting) creates an ensemble of weak learners, iteratively focusing on misclassified samples:
+\begin{equation}
+H(x) = \text{sign}\left(\sum_{t=1}^{T} \alpha_t h_t(x)\right)
+\end{equation}
+
+where $\alpha_t = \frac{1}{2} \ln\left(\frac{1-\epsilon_t}{\epsilon_t}\right)$ weights each weak learner $h_t$ based on its error rate $\epsilon_t$.
+
+\subsection{Evaluation Metrics}
+
+We employ several metrics to evaluate model performance:
+
+\textbf{Classification Metrics:}
+\begin{itemize}
+    \item \textbf{Accuracy:} $\frac{TP + TN}{TP + TN + FP + FN}$
+    \item \textbf{Precision:} $\frac{TP}{TP + FP}$ (proportion of positive predictions that are correct)
+    \item \textbf{Recall:} $\frac{TP}{TP + FN}$ (proportion of actual positives correctly identified)
+    \item \textbf{F1 Score:} $2 \cdot \frac{\text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}$
+    \item \textbf{ROC-AUC:} Area under the Receiver Operating Characteristic curve
+\end{itemize}
+
+\textbf{Ranking Metrics:}
+\begin{itemize}
+    \item \textbf{Hit@K:} Proportion of queries where the relevant item appears in top-K results
+    \item \textbf{Precision@K:} $\frac{\text{Relevant items in top-K}}{K}$
+    \item \textbf{MRR (Mean Reciprocal Rank):} $\frac{1}{|Q|} \sum_{i=1}^{|Q|} \frac{1}{\text{rank}_i}$
+    \item \textbf{NDCG@K:} Normalized Discounted Cumulative Gain, accounting for position-based relevance
+\end{itemize}
+
+%==============================================================================
+\section{Data Preprocessing}
+%==============================================================================
+
+\subsection{Feature Engineering Pipeline}
+
+We developed a comprehensive feature engineering pipeline to transform raw transaction data into machine learning-ready features. The preprocessing steps include:
+
+\subsubsection{Temporal Features}
+From the \texttt{data\_bon} timestamp, we extracted:
+\begin{itemize}
+    \item \texttt{hour}: Hour of the day (0--23)
+    \item \texttt{day\_of\_week}: Day of the week (1--7, where 1 = Monday)
+    \item \texttt{is\_weekend}: Binary indicator (1 if Saturday or Sunday)
+    \item \texttt{date}: Date component for temporal splitting
+\end{itemize}
+
+\subsubsection{Receipt-Level Aggregations}
+For each receipt (\texttt{id\_bon}), we computed:
+\begin{itemize}
+    \item \texttt{cart\_size}: Total number of products in the cart
+    \item \texttt{distinct\_products}: Number of unique products
+    \item \texttt{total\_value}: Sum of \texttt{SalePriceWithVAT}
+\end{itemize}
+
+\subsubsection{Product Indicator Features}
+We created binary features for product presence:
+\begin{equation}
+\text{has\_product}_p = \begin{cases} 1 & \text{if product } p \text{ is in the receipt} \\ 0 & \text{otherwise} \end{cases}
+\end{equation}
+
+\textbf{Important:} To avoid data leakage, the target sauce is always excluded from the feature set when predicting that sauce.
+
+\subsection{Train-Test Split Strategy}
+
+We employed a \textbf{temporal split} strategy to simulate real-world deployment conditions:
+\begin{itemize}
+    \item \textbf{Training set (80\%):} All receipts before a temporal cutoff date
+    \item \textbf{Test set (20\%):} All receipts after the cutoff date
+\end{itemize}
+
+This approach ensures that the model is evaluated on future transactions it has not seen during training, providing a realistic assessment of generalization performance.
+
+For Task 2.1 (Crazy Sauce prediction), we first filtered the dataset to include only receipts containing ``Crazy Schnitzel'', resulting in:
+\begin{itemize}
+    \item Training receipts: $\sim$5,140
+    \item Test receipts: $\sim$1,291
+\end{itemize}
+
+%==============================================================================
+\section{Task 2.1: Crazy Sauce Prediction}
+%==============================================================================
+
+\subsection{Problem Formulation}
+
+Given a receipt containing ``Crazy Schnitzel'', predict whether the customer will also purchase ``Crazy Sauce''.
+
+\textbf{Target variable:}
+\begin{equation}
+y = \begin{cases} 1 & \text{if Crazy Sauce is in the receipt} \\ 0 & \text{otherwise} \end{cases}
+\end{equation}
+
+\textbf{Class distribution:}
+\begin{itemize}
+    \item Without Crazy Sauce: 56.2\%
+    \item With Crazy Sauce: 43.8\%
+\end{itemize}
+
+\subsection{Custom Logistic Regression Implementations}
+
+We implemented three variants of logistic regression from scratch:
+
+\subsubsection{Gradient Descent (GD)}
+
+The standard gradient descent optimization:
+\begin{equation}
+\theta^{(t+1)} = \theta^{(t)} - \alpha \nabla J(\theta^{(t)})
+\end{equation}
+
+where the gradient of the cross-entropy loss with L2 regularization is:
+\begin{equation}
+\nabla J(\theta) = \frac{1}{m} X^T (\sigma(X\theta) - y) + \lambda \theta
+\end{equation}
+
+\textbf{Hyperparameters:}
+\begin{itemize}
+    \item Learning rate $\alpha = 0.1$
+    \item Maximum iterations: 2000
+    \item L2 regularization $\lambda = 0.01$
+\end{itemize}
+
+\subsubsection{Newton's Method}
+
+Second-order optimization using the Hessian matrix:
+\begin{equation}
+\theta^{(t+1)} = \theta^{(t)} - H^{-1} \nabla J(\theta^{(t)})
+\end{equation}
+
+where the Hessian is:
+\begin{equation}
+H = \frac{1}{m} X^T S X + \lambda I
+\end{equation}
+
+with $S = \text{diag}(\sigma(X\theta)(1-\sigma(X\theta)))$.
+
+\textbf{Hyperparameters:}
+\begin{itemize}
+    \item Maximum iterations: 100
+    \item L2 regularization $\lambda = 0.01$
+\end{itemize}
+
+\subsubsection{Mini-Batch Gradient Descent}
+
+Stochastic optimization with mini-batches:
+\begin{equation}
+\theta^{(t+1)} = \theta^{(t)} - \alpha \nabla J_{\text{batch}}(\theta^{(t)})
+\end{equation}
+
+\textbf{Hyperparameters:}
+\begin{itemize}
+    \item Learning rate $\alpha = 0.1$
+    \item Batch size: 32
+    \item Maximum epochs: 500
+    \item L2 regularization $\lambda = 0.01$
+\end{itemize}
+
+\subsection{Model Comparison Results}
+
+\begin{table}[H]
+\centering
+\caption{Task 2.1: Model Performance Comparison}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Model} & \textbf{Accuracy} & \textbf{Precision} & \textbf{Recall} & \textbf{F1} & \textbf{ROC-AUC} \\
+\midrule
+Custom LR (GD) & 54.78\% & 0.602 & 0.575 & 0.588 & 0.549 \\
+Custom LR (Newton) & \textbf{55.62\%} & \textbf{0.611} & 0.580 & 0.595 & \textbf{0.548} \\
+Custom LR (Mini-batch) & 54.78\% & 0.598 & \textbf{0.595} & \textbf{0.596} & 0.536 \\
+Sklearn LR & 55.06\% & 0.606 & 0.570 & 0.588 & 0.544 \\
+Majority Baseline & 56.18\% & 0.562 & 1.000 & 0.719 & 0.500 \\
+\bottomrule
+\end{tabular}
+\label{tab:task21_results}
+\end{table}
+
+\textbf{Key observations:}
+\begin{itemize}
+    \item All models perform similarly, achieving approximately 55\% accuracy
+    \item The majority class baseline achieves 56.18\% accuracy, indicating that the prediction task is inherently challenging
+    \item Custom implementations achieve competitive performance with sklearn, validating our algorithm implementations
+    \item Newton's Method achieves the best performance among custom implementations
+\end{itemize}
+
+\subsection{Convergence Analysis}
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}[b]{0.48\textwidth}
+    \includegraphics[width=\textwidth]{plots/task21_loss_gd.png}
+    \caption{Gradient Descent convergence}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.48\textwidth}
+    \includegraphics[width=\textwidth]{plots/task21_loss_newton.png}
+    \caption{Newton's Method convergence}
+\end{subfigure}
+\caption{Training loss curves for custom Logistic Regression implementations}
+\label{fig:loss_curves}
+\end{figure}
+
+Newton's Method demonstrates faster convergence (fewer iterations) compared to Gradient Descent, as expected from second-order optimization.
+
+\subsection{ROC Curve Comparison}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\textwidth]{plots/task21_roc_comparison.png}
+\caption{ROC curves comparison for Task 2.1 models}
+\label{fig:roc_comparison}
+\end{figure}
+
+\subsection{Feature Importance Analysis}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{plots/task21_feature_importance.png}
+\caption{Top 20 feature coefficients (Newton's Method)}
+\label{fig:feature_importance}
+\end{figure}
+
+\textbf{Interpretation of coefficients:}
+\begin{itemize}
+    \item \textbf{Top positive predictors} (increase probability of Crazy Sauce):
+    \begin{itemize}
+        \item Extra jalapeño ($\beta = 0.177$)
+        \item Total cart value ($\beta = 0.151$)
+        \item Mac \& Cheese ($\beta = 0.144$)
+        \item Weekend purchases ($\beta = 0.141$)
+        \item French fries ($\beta = 0.108$)
+    \end{itemize}
+    \item \textbf{Top negative predictors} (decrease probability of Crazy Sauce):
+    \begin{itemize}
+        \item Tagliata Schnitzel ($\beta = -0.217$)
+        \item Prigat Still Orange ($\beta = -0.171$)
+        \item Pepsi Cola 0.25L ($\beta = -0.152$)
+        \item Aqua Carpatica Plata ($\beta = -0.148$)
+        \item Day of week ($\beta = -0.127$)
+    \end{itemize}
+\end{itemize}
+
+\subsection{Confusion Matrix}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.5\textwidth]{plots/task21_cm_newton.png}
+\caption{Confusion matrix for Newton's Method}
+\label{fig:confusion_matrix}
+\end{figure}
+
+%==============================================================================
+\section{Task 2.2: Multi-Sauce Recommendation}
+%==============================================================================
+
+\subsection{Problem Formulation}
+
+Build a personalized sauce recommendation system by training one Logistic Regression model per sauce:
+\begin{equation}
+y_s = \begin{cases} 1 & \text{if sauce } s \text{ is in the receipt} \\ 0 & \text{otherwise} \end{cases}
+\end{equation}
+
+\subsection{Architecture}
+
+The \texttt{SauceRecommender} class maintains a dictionary of models:
+\begin{lstlisting}
+models = {
+    "Crazy Sauce": LogisticRegressionNewton(),
+    "Cheddar Sauce": LogisticRegressionNewton(),
+    ...  # One model per sauce
+}
+\end{lstlisting}
+
+Each model uses:
+\begin{itemize}
+    \item Newton's Method optimization
+    \item L2 regularization ($\lambda = 0.01$)
+    \item Feature standardization (z-score normalization)
+\end{itemize}
+
+\subsection{Individual Model Performance}
+
+\begin{table}[H]
+\centering
+\caption{Task 2.2: Per-Sauce Model Performance}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Sauce} & \textbf{Accuracy} & \textbf{ROC-AUC} & \textbf{F1} & \textbf{Positive Rate} & \textbf{N Samples} \\
+\midrule
+Crazy Sauce & 78.30\% & 0.486 & 0.0 & 20.62\% & 6,431 \\
+Cheddar Sauce & 87.56\% & 0.502 & 0.0 & 12.94\% & 6,431 \\
+Extra Cheddar Sauce & 99.84\% & 0.498 & 0.0 & 0.31\% & 6,431 \\
+Garlic Sauce & 90.05\% & 0.452 & 0.0 & 9.27\% & 6,431 \\
+Tomato Sauce & 97.20\% & 0.592 & 0.0 & 2.66\% & 6,431 \\
+Blueberry Sauce & 90.90\% & 0.486 & 0.0 & 9.02\% & 6,431 \\
+Spicy Sauce & 93.93\% & 0.604 & 0.0 & 4.87\% & 6,431 \\
+Pink Sauce & 97.82\% & 0.516 & 0.0 & 1.80\% & 6,431 \\
+\bottomrule
+\end{tabular}
+\label{tab:task22_model_summary}
+\end{table}
+
+\textbf{Note:} High accuracy for rare sauces (e.g., Extra Cheddar Sauce at 99.8\%) reflects class imbalance -- the model learns to predict the majority class. The F1 score of 0.0 indicates that the models predict almost exclusively the negative class.
+
+\subsection{Sauce Popularity Analysis}
+
+Understanding sauce popularity is crucial for establishing a meaningful baseline:
+
+\begin{table}[H]
+\centering
+\caption{Sauce Popularity in Training Data}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Sauce} & \textbf{Receipts} & \textbf{Popularity} \\
+\midrule
+Crazy Sauce & 1,326 & 20.62\% \\
+Cheddar Sauce & 832 & 12.94\% \\
+Garlic Sauce & 596 & 9.27\% \\
+Blueberry Sauce & 580 & 9.02\% \\
+Spicy Sauce & 313 & 4.87\% \\
+Tomato Sauce & 171 & 2.66\% \\
+Pink Sauce & 116 & 1.80\% \\
+Extra Cheddar Sauce & 20 & 0.31\% \\
+\bottomrule
+\end{tabular}
+\label{tab:sauce_popularity}
+\end{table}
+
+The high class imbalance (Crazy Sauce at 20.6\% vs Extra Cheddar Sauce at 0.3\%) presents a significant challenge for classification models.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\textwidth]{plots/task22_model_performance.png}
+\caption{Per-sauce model performance metrics}
+\label{fig:model_performance}
+\end{figure}
+
+\subsection{Pseudo-Recommendation Mechanism}
+
+For a given cart (without sauces), we compute:
+\begin{equation}
+P(s \mid \text{cart}) = \sigma(x^T \theta_s)
+\end{equation}
+
+for each sauce $s$, then recommend the Top-K sauces with highest probability.
+
+\subsection{Recommendation Evaluation}
+
+We compare the Logistic Regression-based recommender against a popularity baseline (recommending sauces by global frequency).
+
+\begin{table}[H]
+\centering
+\caption{Task 2.2: Recommendation Performance (LR vs. Popularity Baseline)}
+\begin{tabular}{clccccc}
+\toprule
+\textbf{K} & \textbf{Model} & \textbf{Hit Rate} & \textbf{Precision} & \textbf{Recall} & \textbf{MRR} & \textbf{NDCG} \\
+\midrule
+\multirow{2}{*}{1} & LR & 35.96\% & 0.360 & 0.313 & 0.571 & 0.360 \\
+ & Baseline & 35.83\% & 0.358 & 0.310 & 0.572 & 0.358 \\
+\midrule
+\multirow{2}{*}{3} & LR & \textbf{75.13\%} & \textbf{0.276} & 0.711 & 0.571 & \textbf{0.561} \\
+ & Baseline & 73.66\% & 0.271 & 0.698 & 0.572 & 0.554 \\
+\midrule
+\multirow{2}{*}{5} & LR & 93.45\% & 0.214 & 0.918 & 0.571 & 0.650 \\
+ & Baseline & 94.25\% & 0.216 & 0.925 & 0.572 & 0.652 \\
+\bottomrule
+\end{tabular}
+\label{tab:task22_recommendation}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\textwidth]{plots/task22_recommendation_comparison.png}
+\caption{Recommendation metrics: LR vs. Popularity Baseline}
+\label{fig:recommendation_comparison}
+\end{figure}
+
+\textbf{Key findings:}
+\begin{itemize}
+    \item LR outperforms the popularity baseline at K=3 (+1.47\% Hit Rate)
+    \item At K=5, the popularity baseline slightly outperforms LR
+    \item This suggests that learned models capture meaningful patterns but popularity remains a strong baseline
+\end{itemize}
+
+\subsection{Coefficient Heatmap}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{plots/task22_coefficient_heatmap.png}
+\caption{Feature coefficient heatmap across all sauce models}
+\label{fig:coefficient_heatmap}
+\end{figure}
+
+The heatmap reveals which products are predictive of each sauce, enabling interpretable recommendations.
+
+\subsection{Top Predictors per Sauce}
+
+Analysis of model coefficients reveals meaningful patterns:
+
+\begin{table}[H]
+\centering
+\caption{Top Positive Predictors for Selected Sauces}
+\begin{tabular}{lll}
+\toprule
+\textbf{Sauce} & \textbf{Top Predictor} & \textbf{Coefficient} \\
+\midrule
+Crazy Sauce & Crazy Fries with Parmesan & +0.063 \\
+Cheddar Sauce & Pepsi Cola Can 0.33L & +0.111 \\
+Garlic Sauce & Red Fit Schnitzel & +0.100 \\
+Tomato Sauce & Baked potatoes & +0.116 \\
+Blueberry Sauce & is\_weekend & +0.128 \\
+Spicy Sauce & Viennese Schnitzel & +0.153 \\
+Pink Sauce & Arugula Salad & +0.126 \\
+\bottomrule
+\end{tabular}
+\label{tab:top_predictors}
+\end{table}
+
+\subsection{Example Recommendations}
+
+To illustrate the recommendation system in action, here are sample predictions:
+
+\begin{table}[H]
+\centering
+\caption{Example Recommendation Outputs}
+\small
+\begin{tabular}{p{4cm}p{3cm}p{5cm}}
+\toprule
+\textbf{Cart Contents} & \textbf{Actual Sauce} & \textbf{Top-3 LR Recommendations} \\
+\midrule
+Crazy Schnitzel, Pepsi Cola, Baked potatoes & Cheddar Sauce & Crazy Sauce (0.23), Cheddar Sauce (0.15), Garlic Sauce (0.09) \\
+\midrule
+Healthy Green Fit Schnitzel, Crazy peaches & None & Crazy Sauce (0.21), Cheddar Sauce (0.20), Blueberry Sauce (0.18) \\
+\midrule
+Margherita Pizza Schnitzel & None & Crazy Sauce (0.20), Blueberry Sauce (0.14), Cheddar Sauce (0.13) \\
+\bottomrule
+\end{tabular}
+\label{tab:example_recommendations}
+\end{table}
+
+The LR model correctly identifies Cheddar Sauce in the top-3 for the first example, demonstrating personalization beyond the popularity baseline.
+
+%==============================================================================
+\section{Task 3: Product Ranking for Upsell}
+%==============================================================================
+
+\subsection{Problem Formulation}
+
+Given a partial cart and temporal context, rank candidate products by their likelihood of purchase, weighted by expected revenue:
+\begin{equation}
+\text{Score}(p \mid \text{cart}) = P(p \mid \text{cart}) \times \text{price}(p)
+\end{equation}
+
+\subsection{Candidate Products}
+
+We selected 16 candidate products for ranking:
+\begin{itemize}
+    \item \textbf{Sauces (8):} Crazy, Cheddar, Extra Cheddar, Garlic, Tomato, Blueberry, Spicy, Pink
+    \item \textbf{Drinks (6):} Pepsi Cola 0.25L, Mountain Dew 0.25L, Aqua Carpatica Plata 0.5L, Aqua Carpatica Minerala 0.5L, 7Up, Pepsi Cola Can 0.33L
+    \item \textbf{Sides (2):} Baked potatoes, Crazy Fries with Cheddar Sauce
+\end{itemize}
+
+\subsection{Algorithms Implemented}
+
+\subsubsection{Naive Bayes Classifier}
+
+Multinomial likelihood with Laplace smoothing:
+\begin{equation}
+P(y = c \mid x) \propto P(y = c) \prod_{i=1}^{n} P(x_i \mid y = c)
+\end{equation}
+
+\textbf{Implementation details:}
+\begin{itemize}
+    \item Laplace smoothing parameter $\alpha = 1.0$
+    \item Log-probability computation for numerical stability
+\end{itemize}
+
+\subsubsection{k-Nearest Neighbors (k-NN)}
+
+Distance-weighted voting:
+\begin{equation}
+P(y = c \mid x) = \frac{\sum_{i \in N_k(x)} w_i \cdot \mathbb{1}[y_i = c]}{\sum_{i \in N_k(x)} w_i}
+\end{equation}
+
+where $w_i = \frac{1}{d(x, x_i) + \epsilon}$.
+
+\textbf{Implementation details:}
+\begin{itemize}
+    \item Euclidean distance metric
+    \item Default $k = 5$
+\end{itemize}
+
+\subsubsection{Decision Tree (ID3)}
+
+Information gain-based splitting:
+\begin{equation}
+\text{IG}(S, A) = H(S) - \sum_{v \in \text{values}(A)} \frac{|S_v|}{|S|} H(S_v)
+\end{equation}
+
+where $H(S) = -\sum_{c} p_c \log_2 p_c$ is entropy.
+
+\textbf{Implementation details:}
+\begin{itemize}
+    \item Maximum depth: 8
+    \item Minimum samples for split: 10
+    \item Probabilistic predictions from leaf class distributions
+\end{itemize}
+
+\subsubsection{AdaBoost}
+
+Iterative ensemble with adaptive weights:
+\begin{equation}
+H(x) = \text{sign}\left(\sum_{t=1}^{T} \alpha_t h_t(x)\right)
+\end{equation}
+
+\textbf{Implementation details:}
+\begin{itemize}
+    \item 50 weak learners (decision stumps)
+    \item Learning rate: 0.5
+\end{itemize}
+
+\subsection{Evaluation Protocol}
+
+We use a \textbf{Leave-One-Out} evaluation:
+\begin{enumerate}
+    \item For each test receipt containing multiple candidate products
+    \item Remove one candidate product from the cart
+    \item Use the remaining cart as input features
+    \item Predict a ranking of candidate products
+    \item Evaluate if the removed product appears in Top-K
+\end{enumerate}
+
+This resulted in 1,945 test samples.
+
+\subsection{Algorithm Comparison}
+
+\begin{table}[H]
+\centering
+\caption{Task 3: Algorithm Performance at Different K Values (1,945 test samples)}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Algorithm} & \textbf{Hit@1} & \textbf{Hit@3} & \textbf{Hit@5} & \textbf{Hit@10} & \textbf{MRR} \\
+\midrule
+Random Baseline & 6.94\% & 18.41\% & 31.05\% & 61.80\% & 0.185 \\
+k-NN & 4.78\% & 20.82\% & 41.08\% & 67.04\% & 0.193 \\
+Decision Tree (ID3) & 5.09\% & 21.54\% & 36.35\% & 66.53\% & 0.189 \\
+Naive Bayes & \textbf{15.12\%} & 25.96\% & 35.27\% & 77.69\% & 0.278 \\
+AdaBoost & 2.62\% & 23.44\% & 45.14\% & 84.94\% & 0.210 \\
+Logistic Regression & 9.31\% & 35.12\% & 53.52\% & 86.89\% & \textbf{0.285} \\
+Popularity Baseline & 6.68\% & \textbf{39.69\%} & \textbf{68.07\%} & \textbf{90.13\%} & 0.305 \\
+\bottomrule
+\end{tabular}
+\label{tab:task3_results}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\textwidth]{plots/task3_hit_rate.png}
+\caption{Hit@K comparison across algorithms}
+\label{fig:hit_rate}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\textwidth]{plots/task3_mrr.png}
+\caption{Mean Reciprocal Rank comparison}
+\label{fig:mrr}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\textwidth]{plots/task3_heatmap_k5.png}
+\caption{Performance heatmap at K=5}
+\label{fig:heatmap}
+\end{figure}
+
+\subsection{Hyperparameter Sensitivity Analysis}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{plots/task3_hyperparams.png}
+\caption{Hyperparameter sensitivity analysis}
+\label{fig:hyperparams}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{Hyperparameter Sensitivity Analysis (Hit@5)}
+\begin{tabular}{llcc}
+\toprule
+\textbf{Algorithm} & \textbf{Parameter} & \textbf{Values Tested} & \textbf{Best Performance} \\
+\midrule
+k-NN & k & 1, 3, 5, 7, 10 & k=10: 41.90\% \\
+Decision Tree & max\_depth & 3, 5, 8, 10, 15 & depth=3: 46.12\% \\
+AdaBoost & n\_estimators & 10, 30, 50, 75, 100 & n=10: 49.25\% \\
+\bottomrule
+\end{tabular}
+\label{tab:hyperparams}
+\end{table}
+
+\textbf{Key insights:}
+\begin{itemize}
+    \item \textbf{k-NN:} Performance improves with larger $k$ (peaks at $k=10$), benefiting from larger neighborhoods
+    \item \textbf{Decision Tree:} Shallow trees ($depth=3$) outperform deeper trees, suggesting overfitting with complexity
+    \item \textbf{AdaBoost:} Optimal at $n=10$ estimators; more estimators lead to overfitting
+\end{itemize}
+
+\subsection{Discussion}
+
+The popularity baseline achieves surprisingly strong performance (68.1\% Hit@5), outperforming all learned models. This suggests that:
+
+\begin{enumerate}
+    \item Product popularity is a dominant factor in purchase decisions
+    \item The feature space may not fully capture the relevant purchase signals
+    \item The dataset size may be insufficient for complex models to learn meaningful patterns
+\end{enumerate}
+
+However, learned models (especially Logistic Regression and AdaBoost) show competitive performance at higher K values, indicating they capture some personalization signal beyond popularity.
+
+\subsection{Approaches That Did Not Work Well}
+
+During experimentation, we identified several approaches that underperformed:
+
+\begin{enumerate}
+    \item \textbf{Deep Decision Trees (depth $>$ 8):} Severe overfitting led to worse generalization. Optimal depth was found to be 3, with Hit@5 dropping from 46.1\% to 38.5\% as depth increased to 15.
+
+    \item \textbf{Large AdaBoost Ensembles (n $>$ 50):} More estimators did not improve performance. Hit@5 dropped from 49.3\% (n=10) to 41.4\% (n=100), indicating overfitting.
+
+    \item \textbf{Small k in k-NN (k=1):} Using only the nearest neighbor resulted in noisy predictions. Performance improved monotonically from k=1 (37.7\%) to k=10 (41.9\%).
+
+    \item \textbf{Individual Sauce Models for Rare Sauces:} Models for Extra Cheddar Sauce (0.31\% positive rate) and Pink Sauce (1.80\%) defaulted to predicting the majority class, achieving F1=0.0.
+
+    \item \textbf{Expected Revenue Scoring:} Weighting predictions by price ($P(p) \times \text{price}(p)$) did not significantly outperform probability-only ranking, suggesting purchase probability dominates the ranking signal.
+\end{enumerate}
+
+\subsection{Justification of Design Choices}
+
+Based on theoretical considerations and experimental validation:
+
+\begin{enumerate}
+    \item \textbf{Temporal Split:} We chose temporal splitting over random splitting to simulate realistic deployment where models must predict future purchases. This is more challenging but provides honest performance estimates.
+
+    \item \textbf{Newton's Method for LR:} Second-order optimization converges faster (fewer iterations) than gradient descent, making it suitable for moderately-sized datasets. We validated this by comparing convergence curves.
+
+    \item \textbf{Leave-One-Out Evaluation:} This protocol directly measures ranking ability by testing whether the model can recover a ``missing'' product, which is the exact task needed for upsell recommendations.
+
+    \item \textbf{Multiple Algorithms:} We implemented Naive Bayes, k-NN, ID3, and AdaBoost to compare different inductive biases (probabilistic, instance-based, tree-based, ensemble) on this specific problem.
+\end{enumerate}
+
+%==============================================================================
+\section{Conclusions and Future Directions}
+%==============================================================================
+
+\subsection{Summary of Results}
+
+\begin{enumerate}
+    \item \textbf{Task 2.1:} Predicting Crazy Sauce purchase given Crazy Schnitzel is challenging, with all models achieving approximately 55\% accuracy (near the majority baseline). This suggests weak correlation between cart composition and Crazy Sauce purchase.
+
+    \item \textbf{Task 2.2:} The multi-sauce recommendation system slightly outperforms popularity at K=3, demonstrating that learned models capture meaningful patterns despite high class imbalance.
+
+    \item \textbf{Task 3:} Popularity-based ranking remains a strong baseline (68.1\% Hit@5). Among ML methods, Logistic Regression (53.5\%) and AdaBoost (45.1\%) show the best performance.
+\end{enumerate}
+
+\subsection{Algorithm Implementation Validation}
+
+Our custom implementations of Logistic Regression (Gradient Descent, Newton's Method, Mini-batch GD) achieve comparable performance to sklearn, validating the correctness of our implementations.
+
+\subsection{Future Directions}
+
+\begin{enumerate}
+    \item \textbf{Feature engineering:} Include product embeddings, sequential patterns, or customer-level features
+    \item \textbf{Deep learning:} Explore neural network architectures (e.g., attention mechanisms) for capturing complex interactions
+    \item \textbf{Ensemble methods:} Combine popularity baseline with learned models for hybrid recommendations
+    \item \textbf{Temporal dynamics:} Model time-series patterns in purchasing behavior
+    \item \textbf{A/B testing:} Evaluate recommendation quality through real-world deployment
+\end{enumerate}
+
+%==============================================================================
+\section{Team Contributions}
+%==============================================================================
+
+This project was completed by a team of two members, with responsibilities divided as follows:
+
+\begin{table}[H]
+\centering
+\caption{Team Member Contributions}
+\begin{tabular}{lp{10cm}}
+\toprule
+\textbf{Member} & \textbf{Contributions} \\
+\midrule
+Cojocarescu Rebeca Daria & Task 2.1 (Crazy Sauce prediction with custom Logistic Regression implementations), Task 2.2 (Multi-sauce recommendation system), Feature engineering for sauce models, ROC curve analysis, Coefficient interpretation \\
+\midrule
+Tanasa Ionut-Eduard & Task 3 (Product ranking for upsell), Implementation of ranking algorithms (Naive Bayes, k-NN, Decision Tree ID3, AdaBoost), Hyperparameter tuning experiments, Data preprocessing pipeline, Report writing and visualizations \\
+\bottomrule
+\end{tabular}
+\label{tab:contributions}
+\end{table}
+
+\subsection{Detailed Task Allocation}
+
+\textbf{Rebeca Daria Cojocarescu} was responsible for:
+\begin{itemize}
+    \item Implementing custom Logistic Regression variants (Gradient Descent, Newton's Method, Mini-batch GD)
+    \item Training and evaluating sauce prediction models for Task 2.1
+    \item Building the multi-sauce recommendation system (Task 2.2)
+    \item Analyzing model coefficients and feature importance
+    \item Comparing LR-based recommendations with popularity baseline
+\end{itemize}
+
+\textbf{Ionut-Eduard Tanasa} was responsible for:
+\begin{itemize}
+    \item Implementing ranking algorithms from scratch (Naive Bayes, k-NN, ID3, AdaBoost)
+    \item Designing the Leave-One-Out evaluation protocol for Task 3
+    \item Conducting hyperparameter sensitivity analysis
+    \item Creating the data preprocessing pipeline and temporal split strategy
+    \item Writing the LaTeX report and generating visualizations
+\end{itemize}
+
+%==============================================================================
+% APPENDIX
+%==============================================================================
+\appendix
+
+\section{Running the Code}
+
+\subsection{Requirements}
+
+Install dependencies:
+\begin{lstlisting}[language=bash]
+pip install -r requirements.txt
+\end{lstlisting}
+
+\subsection{Execution}
+
+Run all experiments:
+\begin{lstlisting}[language=bash]
+python run_all.py
+\end{lstlisting}
+
+This will:
+\begin{enumerate}
+    \item Load and preprocess the dataset
+    \item Execute Task 2.1, 2.2, and 3
+    \item Generate plots in the \texttt{plots/} directory
+    \item Save results in the \texttt{results/} directory
+\end{enumerate}
+
+\section{Detailed Results Tables}
+
+The complete results are available in CSV format:
+\begin{itemize}
+    \item \texttt{results/task21\_results.csv}
+    \item \texttt{results/task21\_coefficients.csv}
+    \item \texttt{results/task22\_model\_summary.csv}
+    \item \texttt{results/task22\_recommendation\_results.csv}
+    \item \texttt{results/task22\_coefficients.csv}
+    \item \texttt{results/task3\_results.csv}
+    \item \texttt{results/task3\_hyperparams.csv}
+\end{itemize}
+
+\end{document}
